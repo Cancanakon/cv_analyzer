@@ -12,17 +12,30 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score
 import pickle
+import spacy
+
 
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = 'uploads/'
 app.config['ALLOWED_EXTENSIONS'] = {'pdf', 'docx'}
 
-nlp = spacy.load("en_core_web_sm")
-
 nltk.download('punkt')
 nltk.download('stopwords')
 stop_words = set(nltk.corpus.stopwords.words('english'))
 
+def download_and_load_model(model_name):
+    import subprocess
+    import sys
+
+    try:
+        subprocess.check_output([sys.executable, "-m", "spacy", "download", model_name])
+    except subprocess.CalledProcessError as e:
+        print("Error occurred while downloading and installing the model:", e)
+        sys.exit(1)
+
+download_and_load_model("en_core_web_lg")
+
+nlp = spacy.load("en_core_web_lg")
 def preprocess_text(text):
     text = text.lower()
     text = ' '.join([word for word in text.split() if word not in stop_words])
@@ -49,8 +62,8 @@ def analyze_cv(cv_text, required_skills):
 
     if required_skills:
         for skill in required_skills:
-            if skill in cv_text:
-                analysis['matching_skills'][skill] = cv_text.count(skill)
+            if skill.lower() in cv_text:
+                analysis['matching_skills'][skill] = cv_text.count(skill.lower())
             else:
                 analysis['missing_skills'].append(skill)
 
@@ -79,6 +92,7 @@ def init_db():
             surname TEXT,
             phone TEXT,
             email TEXT,
+            address TEXT,
             cv_text TEXT
         )
     ''')
@@ -90,6 +104,7 @@ def extract_information_from_cv(cv_text):
 
     name = None
     surname = None
+    address = None
     for ent in doc.ents:
         if ent.label_ == 'PERSON':
             name_parts = ent.text.split()
@@ -97,6 +112,8 @@ def extract_information_from_cv(cv_text):
                 name = name_parts[0]
                 surname = name_parts[-1]
                 break
+        if ent.label_ == 'GPE' or ent.label_ == 'LOC':
+            address = ent.text
 
     email_pattern = re.compile(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b')
     email_match = email_pattern.search(cv_text)
@@ -106,7 +123,7 @@ def extract_information_from_cv(cv_text):
     phone_match = phone_pattern.search(cv_text)
     phone = " ".join(phone_match.groups()) if phone_match else None
 
-    return name, surname, email, phone
+    return name, surname, email, phone, address
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
@@ -127,16 +144,17 @@ def index():
             elif filename.rsplit('.', 1)[1].lower() == 'docx':
                 cv_text = extract_text_from_docx(filepath)
 
-            name, surname, email, phone = extract_information_from_cv(cv_text)
+            name, surname, email, phone, address = extract_information_from_cv(cv_text)
 
             name = name if name else "Unknown"
             surname = surname if surname else "Unknown"
             email = email if email else "Unknown"
             phone = phone if phone else "Unknown"
+            address = address if address else "Unknown"
 
             analysis = analyze_cv(cv_text, required_skills)
 
-            return render_template('result.html', analysis=analysis, name=name, surname=surname, email=email, phone=phone, cv_text=cv_text)
+            return render_template('result.html', analysis=analysis, name=name, surname=surname, email=email, phone=phone, address=address, cv_text=cv_text)
 
     return render_template('index.html')
 
@@ -146,14 +164,15 @@ def save():
     surname = request.form['surname']
     email = request.form['email']
     phone = request.form['phone']
+    address = request.form['address']
     cv_text = request.form['cv_text']
 
     conn = sqlite3.connect('data.db')
     cursor = conn.cursor()
     cursor.execute('''
-        INSERT INTO cv_data (name, surname, phone, email, cv_text)
-        VALUES (?, ?, ?, ?, ?)
-    ''', (name, surname, phone, email, cv_text))
+        INSERT INTO cv_data (name, surname, phone, email, address, cv_text)
+        VALUES (?, ?, ?, ?, ?, ?)
+    ''', (name, surname, phone, email, address, cv_text))
     conn.commit()
     conn.close()
 

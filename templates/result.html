@@ -5,10 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Analysis Result</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
     <div class="result-container">
         <h1>Analysis Result</h1>
+        <canvas id="matchChart" width="400" height="400"></canvas>
         <p>Percentage Match: {{ analysis['percentage_match'] }}%</p>
         <h2>Matching Skills</h2>
         <ul>
@@ -37,5 +39,35 @@
         </form>
         <a href="/">Back to upload</a>
     </div>
+
+    <script>
+        var ctx = document.getElementById('matchChart').getContext('2d');
+        var chart = new Chart(ctx, {
+            type: 'pie',
+            data: {
+                labels: ['Match', 'Mismatch'],
+                datasets: [{
+                    label: 'Skill Match',
+                    data: [{{ analysis['percentage_match'] }}, {{ 100 - analysis['percentage_match'] }}],
+                    backgroundColor: ['#36a2eb', '#ff6384'],
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(tooltipItem) {
+                                return tooltipItem.label + ': ' + tooltipItem.raw.toFixed(2) + '%';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    </script>
 </body>
 </html>
