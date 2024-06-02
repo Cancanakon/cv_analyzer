@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CV Analyzer</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+<body>
+    <form action="/" method="post" enctype="multipart/form-data">
+        <h1>Upload your CV</h1>
+        <label for="skills">Required Skills (comma-separated):</label>
+        <input type="text" id="skills" name="skills" value="Python, Machine Learning, Data Analysis" required>
+        <br>
+        <label for="file">Upload your CV (PDF or DOCX):</label>
+        <input type="file" id="file" name="file" accept=".pdf, .docx" required>
+        <br>
+        <input type="submit" value="Upload">
+    </form>
+</body>
+</html>
